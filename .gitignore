@@ -15,5 +15,3 @@ imagens_eventos/
 .idea/
 *.log
 exemplo_selenium.py
-Dockerfile
-exemplo_selenium.py
