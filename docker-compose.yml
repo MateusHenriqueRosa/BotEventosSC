@@ -3,5 +3,6 @@ services:
     build: .
     container_name: bot-discord
     restart: unless-stopped
+    shm_size: "256m"
     env_file:
       - .env

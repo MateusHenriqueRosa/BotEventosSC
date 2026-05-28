@@ -13,22 +13,53 @@ async def buscar_ingressonacional(canal, cidade, driver, cancelar, eventos_envia
     if cancelar.is_set():
         return 0
 
+    # Remover overlays (chat widgets, cookie banners) que bloqueiam interação
+    driver.execute_script(
+        "document.querySelectorAll('[class*=wbot], [class*=chat-widget], [class*=cookie]')"
+        ".forEach(el => el.style.display='none')"
+    )
+
     try:
         search_box = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located(
-                (By.CSS_SELECTOR, "form input[type='text'], form input[type='search'], form input")
+            EC.element_to_be_clickable(
+                (By.CSS_SELECTOR, "input[placeholder*='Pesquise'], input[placeholder*='busca']")
             )
         )
-    except Exception as e:
-        logger.warning(f"Ingresso Nacional: campo de busca não encontrado para {cidade}: {e}")
-        return 0
+    except Exception:
+        # Fallback: buscar qualquer input visível via JS
+        try:
+            search_box = driver.execute_script(
+                "return [...document.querySelectorAll('input')].find(i => i.offsetParent !== null && i.type !== 'hidden')"
+            )
+            if not search_box:
+                raise Exception("nenhum input visível")
+        except Exception as e:
+            logger.warning(f"Ingresso Nacional: campo de busca não encontrado para {cidade}: {e}")
+            return 0
 
-    search_box.clear()
-    search_box.send_keys(cidade)
+    try:
+        driver.execute_script("arguments[0].scrollIntoView({block:'center'})", search_box)
+        search_box.click()
+        search_box.clear()
+        search_box.send_keys(cidade)
+    except Exception:
+        driver.execute_script(
+            "arguments[0].value = arguments[1]; arguments[0].dispatchEvent(new Event('input', {bubbles:true}))",
+            search_box, cidade
+        )
+
     await cancelavel_sleep(2, cancelar)
     if cancelar.is_set():
         return 0
-    search_box.send_keys(Keys.RETURN)
+
+    try:
+        search_box.send_keys(Keys.RETURN)
+    except Exception:
+        driver.execute_script(
+            "arguments[0].closest('form')?.submit() || arguments[0].dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))",
+            search_box
+        )
+
     await cancelavel_sleep(3, cancelar)
     if cancelar.is_set():
         return 0
