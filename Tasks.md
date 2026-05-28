@@ -254,29 +254,26 @@ Florianópolis, Brusque, Blumenau, Balneário Camboriú, Camboriú, Itapema, Por
 
 **Integração em `buscar_eventos()`:** Novos scrapers chamados sequencialmente após os existentes (linhas 1100-1124), cada um com `resetar_driver()` entre chamadas
 
-### FASE 3 — Melhorias de Arquitetura (Prioridade Média)
+### FASE 3 — Melhorias de Arquitetura (Prioridade Média) ✅ CONCLUÍDA
 
-- [ ] **T16:** Refatorar scrapers em módulo separado (`scrapers/`)
-  - Criar `scrapers/__init__.py`
-  - Criar um arquivo por site: `scrapers/ingresso_nacional.py`, etc.
-  - Cada scraper segue interface comum: `async def buscar(canal, cidade, driver, cancelar) -> int`
-  - Facilita manutenção individual de cada scraper
+- [x] **T16:** Refatorar scrapers em módulo separado (`scrapers/`)
+  - Criado `scrapers/__init__.py` com exports e lista `SITES`
+  - Criado `scrapers/helpers.py` com utilitários compartilhados
+  - 9 arquivos por site: `ingresso_nacional.py`, `blueticket.py`, `guicheweb.py`, `pensanoevento.py`, `minhaentrada.py`, `bilheteriadigital.py`, `aquitemingressos.py`, `ingressodigital.py`, `eticketcenter.py`
+  - `bot_discord.py` reduzido a ~260 linhas (orquestração + comandos)
 
-- [ ] **T17:** Adicionar comando `!cidades` para listar cidades disponíveis
-  - Exibe as 8 cidades padrão
-  - Ajuda o usuário a saber quais cidades pode buscar
+- [x] **T17:** Adicionar comando `!cidades` para listar cidades disponíveis
+  - Embed com as 8 cidades padrão e instrução de uso
 
-- [ ] **T18:** Adicionar comando `!sites` para listar sites sendo consultados
-  - Lista todos os 9 sites com status (ativo/inativo)
-  - Permite ao usuário saber de onde vêm os eventos
+- [x] **T18:** Adicionar comando `!sites` para listar sites sendo consultados
+  - Embed com os 9 sites e URLs, gerado a partir da lista `SITES`
 
-- [ ] **T19:** Adicionar resumo final por site
-  - Ao final da busca, mostrar tabela com quantidade de eventos por site
-  - Ex: "Blueticket: 5 | GuicheWeb: 3 | PensaNoEvento: 8"
+- [x] **T19:** Adicionar resumo final por site
+  - Embed "Resumo por Site" com contagem de eventos por site ao final de `buscar_eventos()`
 
-- [ ] **T20:** Atualizar `Dockerfile` para incluir novos arquivos se modularizado
+- [x] **T20:** Atualizar `Dockerfile` para incluir `COPY scrapers/ ./scrapers/`
 
-- [ ] **T21:** Atualizar `README.md` com novos sites e comandos
+- [x] **T21:** Atualizar `README.md` com 9 sites, novos comandos, estrutura modularizada e dependências atualizadas
 
 ---
 

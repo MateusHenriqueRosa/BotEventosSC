@@ -24,6 +24,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar código do bot
 COPY bot_discord.py .
+COPY scrapers/ ./scrapers/
 
 # Comando para executar o bot
 CMD ["python", "bot_discord.py"]

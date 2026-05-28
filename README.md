@@ -8,14 +8,16 @@ Automação inteligente para agregação e distribuição de eventos em Santa Ca
 
 ## 📋 Sobre
 
-Bot Discord que automatiza a busca de eventos em cidades de Santa Catarina (Brusque, Blumenau, Balneário Camboriú, Camboriú, Itapema, Porto Belo e Itajaí) através de web scraping com Selenium e envia as informações formatadas em embeds para canais Discord.
+Bot Discord que automatiza a busca de eventos em cidades de Santa Catarina (Florianopolis, Brusque, Blumenau, Balneario Camboriu, Camboriu, Itapema, Porto Belo e Itajai) atraves de web scraping com Selenium em **9 sites de ingressos** e envia as informacoes formatadas em embeds para canais Discord.
 
 **Funcionalidades:**
-- 🔍 Web scraping automático de eventos
-- 📤 Integração com Discord via bot e webhooks
+- 🔍 Web scraping automatico de 9 plataformas de ingressos
+- 📤 Integracao com Discord via bot
 - 🖼️ Embeds formatados com imagens dos eventos
-- 📅 Extração de datas e informações dos eventos
-- 🐳 Suporte a containerização com Docker
+- 📅 Extracao de datas e informacoes dos eventos
+- 🔎 Deduplicacao automatica de eventos entre sites
+- 📊 Resumo por site ao final de cada busca
+- 🐳 Suporte a containerizacao com Docker
 - ☁️ Deploy pronto para Render
 
 ## 🚀 Quick Start
@@ -26,7 +28,6 @@ Bot Discord que automatiza a busca de eventos em cidades de Santa Catarina (Brus
 - Git
 - Conta Discord com permissões para criar bots
 - Token do bot Discord
-- Webhook URL do Discord (opcional)
 
 ### Instalação
 
@@ -60,7 +61,6 @@ cp .env.example .env
 # Edite o .env com suas credenciais
 # BOT_TOKEN=seu_token_aqui
 # CANAL_ID=seu_canal_id_aqui
-# DISCORD_WEBHOOK_URL=sua_webhook_url_aqui
 ```
 
 5. Execute o bot:
@@ -74,8 +74,13 @@ python bot_discord.py
 
 | Comando | Descrição |
 |---------|-----------|
-| `!buscar` | Inicia a busca de eventos em todas as cidades |
+| `!buscar` | Inicia a busca de eventos nas cidades padrão |
+| `!buscar <cidade>` | Busca em uma cidade específica (ex: `!buscar Florianópolis`) |
+| `!buscar <c1>;<c2>` | Busca em múltiplas cidades (ex: `!buscar Blumenau;Itajaí`) |
 | `!eventos` | Alias para `!buscar` |
+| `!cidades` | Lista as cidades disponíveis para busca |
+| `!sites` | Lista os 9 sites de ingressos consultados |
+| `!parar` | Cancela a busca em andamento (alias: `!cancelar`) |
 | `!ajuda` | Exibe a lista de comandos disponíveis |
 
 ### Exemplo de Uso
@@ -97,11 +102,8 @@ Bot: ✅ Busca concluída! Total de eventos encontrados: 15
 # Token do bot Discord
 BOT_TOKEN=seu_token_discord_aqui
 
-# ID do canal onde o bot vai responder
+# ID do canal onde o bot vai responder (0 = qualquer canal)
 CANAL_ID=seu_canal_id_aqui
-
-# URL do webhook Discord (para exemplo_selenium.py)
-DISCORD_WEBHOOK_URL=sua_webhook_url_aqui
 ```
 
 ### Criar um Bot Discord
@@ -132,7 +134,6 @@ docker run -d \
   --name bot-eventos \
   -e BOT_TOKEN=seu_token_aqui \
   -e CANAL_ID=seu_canal_id_aqui \
-  -e DISCORD_WEBHOOK_URL=sua_webhook_url_aqui \
   bot-eventos-sc
 ```
 
@@ -153,8 +154,21 @@ O projeto está configurado para deploy automático no Render. Veja [DEPLOY_REND
 ```
 BotEventosSC/
 ├── bot_discord.py              # Bot principal com comandos Discord
+├── scrapers/                   # Módulo de scrapers
+│   ├── __init__.py             # Exports e lista SITES
+│   ├── helpers.py              # Utilitários compartilhados
+│   ├── ingresso_nacional.py    # ingressonacional.com.br
+│   ├── blueticket.py           # blueticket.com.br
+│   ├── guicheweb.py            # guicheweb.com.br
+│   ├── pensanoevento.py        # pensanoevento.com.br
+│   ├── minhaentrada.py         # minhaentrada.com.br
+│   ├── bilheteriadigital.py    # bilheteriadigital.com
+│   ├── aquitemingressos.py     # aquitemingressos.com.br
+│   ├── ingressodigital.py      # ingressodigital.com
+│   └── eticketcenter.py        # eticketcenter.com.br
 ├── requirements.txt            # Dependências Python
 ├── Dockerfile                  # Configuração Docker
+├── docker-compose.yml          # Orquestração Docker
 ├── .env.example               # Template de variáveis de ambiente
 ├── .gitignore                 # Arquivos ignorados pelo Git
 ├── README.md                  # Este arquivo
@@ -164,12 +178,25 @@ BotEventosSC/
     └── DEPLOY_RENDER.md
 ```
 
+## 🌐 Sites Consultados
+
+| Site | URL |
+|------|-----|
+| Ingresso Nacional | ingressonacional.com.br |
+| Blueticket | blueticket.com.br |
+| Guichê Web | guicheweb.com.br |
+| Pensa no Evento | pensanoevento.com.br |
+| Minha Entrada | minhaentrada.com.br |
+| Bilheteria Digital | bilheteriadigital.com |
+| Aqui Tem Ingressos | aquitemingressos.com.br |
+| Ingresso Digital | ingressodigital.com |
+| eTicket Center | eticketcenter.com.br |
+
 ## 📦 Dependências
 
 - **discord.py** (2.7.1) - Biblioteca para interagir com Discord API
 - **selenium** (4.41.0) - Framework de automação web
 - **webdriver-manager** (4.0.2) - Gerenciamento automático de drivers
-- **discord-webhook** (1.4.1) - Integração com webhooks Discord
 - **python-dotenv** (1.0.0) - Carregamento de variáveis de ambiente
 
 ## 🔐 Segurança
@@ -188,8 +215,8 @@ BotEventosSC/
 
 ### Eventos não encontrados
 - O site pode ter mudado sua estrutura HTML
-- Verifique os XPaths em `bot_discord.py`
-- Tente executar `exemplo_selenium.py` para debug
+- Verifique os seletores CSS no módulo `scrapers/` correspondente
+- Consulte os logs para identificar erros específicos por scraper
 
 ### Erro de WebDriver
 - Execute `pip install --upgrade webdriver-manager`
@@ -197,7 +224,7 @@ BotEventosSC/
 
 ### Eventos não encontrados ao executar
 - O site pode ter mudado sua estrutura HTML
-- Verifique os XPaths no código
+- Verifique os seletores no arquivo do scraper em `scrapers/`
 - Teste a conexão com o site manualmente
 
 ## 📝 Logs
@@ -230,10 +257,4 @@ Para dúvidas ou problemas, abra uma [Issue](https://github.com/Eduardokohler/Bo
 
 ---
 
-**Última atualização:** Março 2026
-
----
-**Futuras Atualizações**
-
-- Funcionalidade nova: Adicionar lista de cidades, sendo totalmente dinâmico e personalizável.
-- Sites a ser integrados no sistema: Blueticket.com.br, Eventim.com.br, guicheweb.com.br, ingresso.com e ingresse.com
+**Última atualização:** Maio 2026
