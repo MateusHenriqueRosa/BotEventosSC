@@ -11,24 +11,20 @@ Florianópolis, Brusque, Blumenau, Balneário Camboriú, Camboriú, Itapema, Por
 
 ---
 
-## 1. Estado Atual dos Sites
+## 1. Estado Atual dos Sites (atualizado pós-refatoração)
 
-### Sites JÁ implementados:
-| Site | Função | Status |
-|------|--------|--------|
-| ingressonacional.com.br | `buscar_eventos()` (linhas 329-395) | Com bugs críticos |
-| blueticket.com.br | `buscar_blueticket()` / `_scrape_blueticket_categoria()` (linhas 58-131) | Seletores não verificáveis (SPA Vue.js) |
-| guicheweb.com.br | `buscar_guicheweb()` (linhas 144-196) | Seletores possivelmente desatualizados |
-| pensanoevento.com.br | `buscar_pensanoevento()` (linhas 199-315) | Seletores possivelmente desatualizados |
-
-### Sites a ADICIONAR:
-| Site | Tipo | Filtro Cidade | Filtro Categoria | Prioridade |
-|------|------|---------------|------------------|------------|
-| minhaentrada.com.br | SSR | Dropdown (estado + cidade) | URL: `/agenda-geral?categoria=2` (Baladas), `?categoria=6` (Festas) | Alta |
-| bilheteriadigital.com/SC | SSR + JS | URL: `/SC` (por estado) | Não possui filtro por categoria | Média |
-| aquitemingressos.com.br | SSR | Sem filtro explícito (eventos regionais SC) | Sem filtro explícito | Média |
-| ingressodigital.com | SSR (PHP) | Form: `txt_estado=SC`, `txt_cidade=` | URL: `txt_genero=27` (Shows) — sem "Balada" específica | Baixa |
-| eticketcenter.com.br | SSR | Sem filtro por cidade | URL: `/eventos/festa/`, `/eventos/show/` | Baixa |
+### Todos os 9 sites implementados em `scrapers/`:
+| Site | Módulo | Padrão | Status Testado |
+|------|--------|--------|----------------|
+| ingressonacional.com.br | `scrapers/ingresso_nacional.py` | per-city | ✅ 11 eventos (Blumenau) |
+| blueticket.com.br | `scrapers/blueticket.py` | per-city (SPA Vue.js) | ✅ 0 eventos (cobertura limitada por cidade/data) |
+| guicheweb.com.br | `scrapers/guicheweb.py` | per-city | ✅ 0 eventos (cobertura limitada por cidade/data) |
+| pensanoevento.com.br | `scrapers/pensanoevento.py` | per-city | ✅ 12 eventos (Blumenau) |
+| minhaentrada.com.br | `scrapers/minhaentrada.py` | bulk SC | ✅ funcional (0 nas cidades do teste) |
+| bilheteriadigital.com | `scrapers/bilheteriadigital.py` | bulk SC | ✅ 4 eventos |
+| aquitemingressos.com.br | `scrapers/aquitemingressos.py` | bulk SC | ✅ funcional (0 nas cidades do teste) |
+| ingressodigital.com | `scrapers/ingressodigital.py` | bulk paginado | ✅ 9 eventos |
+| eticketcenter.com.br | `scrapers/eticketcenter.py` | bulk 3 categorias | ✅ 3 eventos |
 
 ---
 
@@ -218,41 +214,44 @@ Florianópolis, Brusque, Blumenau, Balneário Camboriú, Camboriú, Itapema, Por
 ### FASE 2 — Novos Scrapers (Prioridade Alta) ✅ CONCLUÍDA
 
 #### T11: Implementar `buscar_minhaentrada()` ✅
-- **Implementado:** `bot_discord.py` linha 512
+- **Implementado:** `scrapers/minhaentrada.py`
 - **Abordagem:** Busca em bulk — carrega `/agenda-geral?categoria=2` (Baladas) e `?categoria=6` (Festas) uma vez cada, filtra por cidades via `cidade_match()`
 - **Seletores:** `a[href*="/evento/"]` para cards, `h4` para nome, `img` para imagem
 - **Cor:** `0x00BFA5` | **Footer:** "Minha Entrada"
 
 #### T12: Implementar `buscar_bilheteriadigital()` ✅
-- **Implementado:** `bot_discord.py` linha 611
+- **Implementado:** `scrapers/bilheteriadigital.py`
 - **Abordagem:** Busca em bulk — carrega `/SC` que lista todos os eventos do estado, filtra por cidade extraindo do padrão "Cidade - SC" via `extrair_cidade()`
 - **Seletores:** `a[href]` filtrados por domínio e presença de " - SC" no texto
 - **Cor:** `0x6C3BF5` | **Footer:** "Bilheteria Digital"
 
 #### T13: Implementar `buscar_aquitemingressos()` ✅
-- **Implementado:** `bot_discord.py` linha 711
+- **Implementado:** `scrapers/aquitemingressos.py`
 - **Abordagem:** Busca em bulk — carrega `/eventos`, extrai cards por `a[href*="__"]`, filtra cidade do campo local via `extrair_cidade()` + `cidade_match()` como fallback
 - **Seletores:** `a[href*='__']` para cards, `h4` para nome, parent text para data/local
 - **Cor:** `0xF5A623` | **Footer:** "Aqui Tem Ingressos"
 
 #### T14: Implementar `buscar_ingressodigital()` ✅
-- **Implementado:** `bot_discord.py` linha 821
+- **Implementado:** `scrapers/ingressodigital.py`
 - **Abordagem:** Busca paginada — navega `/pesquisa.php?busca=S&pg={n}&txt_estado=SC` (até 5 páginas), filtra por cidade via `cidade_match()`
 - **Seletores:** `a[href*='/evento/']` para cards, `h3/h4/h2` para nome
 - **Cor:** `0x2196F3` | **Footer:** "Ingresso Digital"
 
 #### T15: Implementar `buscar_eticketcenter()` ✅
-- **Implementado:** `bot_discord.py` linha 944
+- **Implementado:** `scrapers/eticketcenter.py`
 - **Abordagem:** Busca por 3 categorias — `/eventos/festa/`, `/eventos/show/`, `/eventos/festival/`, filtra por cidade via `cidade_match()`
 - **Seletores:** `a[href*='/eventos/']` filtrados por profundidade de URL (>5 segmentos)
 - **Cor:** `0xE91E63` | **Footer:** "eTicket Center"
 
-**Helpers adicionados (módulo-level):**
-- `normalizar_texto()` — remove acentos + lowercase (linha 42)
-- `extrair_cidade()` — extrai cidade de padrões "/SC", ", SC", "- SC" (linha 48)
-- `cidade_match()` — verifica se alguma cidade da lista aparece no texto (linha 61)
+**Helpers compartilhados em `scrapers/helpers.py`:**
+- `normalizar_texto()` — remove acentos + lowercase
+- `extrair_cidade()` — extrai cidade de padrões "/SC", ", SC", "- SC"
+- `cidade_match()` — verifica se alguma cidade da lista aparece no texto
+- `criar_driver()` — Chrome headless com flags de estabilidade para Docker
+- `resetar_driver()` — limpa cookies e volta a about:blank entre scrapers
+- `cancelavel_sleep()` — sleep que respeita o sinal de cancelamento
 
-**Integração em `buscar_eventos()`:** Novos scrapers chamados sequencialmente após os existentes (linhas 1100-1124), cada um com `resetar_driver()` entre chamadas
+**Orquestração em `bot_discord.py`:** `buscar_eventos()` chama todos os 9 scrapers sequencialmente, cada um com `resetar_driver()` entre chamadas, e ao final envia embed de resumo por site.
 
 ### FASE 3 — Melhorias de Arquitetura (Prioridade Média) ✅ CONCLUÍDA
 
@@ -358,3 +357,58 @@ FASE 3 (Melhorias): T16 → T17 → T18 → T19 → T20 → T21
 - **Sites podem mudar estrutura HTML a qualquer momento** — scrapers precisam de logging robusto para detectar mudanças
 - **Rate limiting:** Manter `cancelavel_sleep()` entre requests para não sobrecarregar os sites
 - **Nenhuma dependência nova necessária** — Selenium + discord.py já cobrem tudo
+
+---
+
+## 7. Checklist de Deploy em VPS (Produção)
+
+### Pré-requisitos na VPS
+```bash
+# Docker Engine
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER   # fazer logout/login após
+
+# Docker Compose plugin
+sudo apt-get install docker-compose-plugin
+```
+
+### Deploy
+```bash
+# 1. Clonar o repositório
+git clone https://github.com/MateusHenriqueRosa/BotEventosSC.git
+cd BotEventosSC
+
+# 2. Criar e preencher o .env
+cp .env.example .env
+nano .env
+# → BOT_TOKEN=seu_token_real
+# → CANAL_ID=id_do_canal_no_discord
+
+# 3. Build e iniciar (primeira vez: ~5-10 min para baixar Chrome)
+docker compose up -d --build
+
+# 4. Verificar se o container está rodando
+docker compose logs -f
+```
+
+### Operação
+```bash
+# Ver logs em tempo real
+docker compose logs -f
+
+# Reiniciar
+docker compose restart
+
+# Parar
+docker compose down
+
+# Atualizar para nova versão
+git pull && docker compose up -d --build
+```
+
+### Verificações antes de subir
+- [ ] `BOT_TOKEN` e `CANAL_ID` corretos no `.env`
+- [ ] Bot adicionado ao servidor Discord com permissões: `Send Messages`, `Embed Links`, `Read Message History`
+- [ ] VPS tem pelo menos **2 GB de RAM** (Chrome headless consome ~400-600 MB por scraping)
+- [ ] VPS tem pelo menos **4 GB de disco** (imagem Docker ~1.4 GB)
+- [ ] Porta de saída HTTPS (443) liberada para acesso aos sites de ingressos
