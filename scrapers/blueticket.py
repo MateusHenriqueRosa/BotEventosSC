@@ -7,9 +7,15 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 from .helpers import logger, evento_key, cancelavel_sleep
 
+BASE_URL = "https://www.blueticket.com.br"
+
+CATEGORIAS = ["Baladas", "Festivais", "Shows Nacionais"]
+
 
 async def _scrape_blueticket_categoria(canal, cidade, categoria, driver, cancelar, eventos_enviados):
-    url = f"https://www.blueticket.com.br/search?q={urllib.parse.quote(cidade)}&category={urllib.parse.quote(categoria)}"
+    cidade_param = urllib.parse.quote(f"{cidade}, SC")
+    cat_param = urllib.parse.quote(categoria)
+    url = f"{BASE_URL}/search?q=&category={cat_param}&city={cidade_param}"
     driver.get(url)
 
     try:
@@ -32,13 +38,43 @@ async def _scrape_blueticket_categoria(canal, cidade, categoria, driver, cancela
             if cancelar.is_set():
                 return total
             try:
-                href  = card.get_attribute("href") or ""
+                href = card.get_attribute("href") or ""
                 if not href:
                     continue
-                nome  = card.find_element(By.CSS_SELECTOR, ".event-title").text.strip()
-                local = card.find_element(By.CSS_SELECTOR, ".event-location").text.strip()
-                data  = card.find_element(By.CSS_SELECTOR, ".event-date").text.strip()
-                hora  = card.find_element(By.CSS_SELECTOR, ".event-hour").text.strip()
+                if href.startswith("/"):
+                    href = f"{BASE_URL}{href}"
+
+                nome = ""
+                try:
+                    nome = card.find_element(By.CSS_SELECTOR, ".event-title").text.strip()
+                except Exception:
+                    pass
+                if not nome:
+                    continue
+
+                local = ""
+                try:
+                    local = card.find_element(By.CSS_SELECTOR, ".event-location").text.strip()
+                except Exception:
+                    pass
+
+                cidade_evento = ""
+                try:
+                    cidade_evento = card.find_element(By.CSS_SELECTOR, ".event-city").text.strip()
+                except Exception:
+                    pass
+
+                data = ""
+                try:
+                    data = card.find_element(By.CSS_SELECTOR, ".event-date").text.strip()
+                except Exception:
+                    pass
+
+                hora = ""
+                try:
+                    hora = card.find_element(By.CSS_SELECTOR, ".event-hour").text.strip()
+                except Exception:
+                    pass
 
                 link_imagem = None
                 try:
@@ -54,9 +90,12 @@ async def _scrape_blueticket_categoria(canal, cidade, categoria, driver, cancela
                     continue
                 eventos_enviados.add(key)
 
+                data_display = f"{data} às {hora}" if hora else data
+                local_display = f"{local} — {cidade_evento}" if cidade_evento else local
+
                 embed = discord.Embed(
                     title=f"🪩 {nome}",
-                    description=f"**📅 Data:** {data} às {hora}\n**📍 Local:** {local}\n**🏷️ Categoria:** {categoria}",
+                    description=f"**📅 Data:** {data_display}\n**📍 Local:** {local_display}\n**🏷️ Categoria:** {categoria}",
                     color=0x1DA1F2,
                     url=href
                 )
@@ -80,7 +119,14 @@ async def _scrape_blueticket_categoria(canal, cidade, categoria, driver, cancela
 
 async def buscar_blueticket(canal, cidade, driver, cancelar, eventos_enviados):
     await canal.send(f"🔵 **Blueticket** em **{cidade}**")
-    encontrados = await _scrape_blueticket_categoria(canal, cidade, "Baladas", driver, cancelar, eventos_enviados)
-    if encontrados == 0 and not cancelar.is_set():
+    total = 0
+
+    for categoria in CATEGORIAS:
+        if cancelar.is_set():
+            return total
+        n = await _scrape_blueticket_categoria(canal, cidade, categoria, driver, cancelar, eventos_enviados)
+        total += n
+
+    if total == 0 and not cancelar.is_set():
         await canal.send(f"⚠️ Nenhum evento encontrado na Blueticket para {cidade}")
-    return encontrados
+    return total
