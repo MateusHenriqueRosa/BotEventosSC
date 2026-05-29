@@ -114,17 +114,22 @@ async def buscar_ingressonacional(canal, cidade, driver, cancelar, eventos_envia
                 except Exception:
                     pass
 
-                link = None
+                # Tentar link direto primeiro (card é <a>), depois buscar ancora filha (card é div)
+                link = ""
                 try:
-                    link = card.find_element(By.CSS_SELECTOR, "a[href*='/evento']").get_attribute("href")
+                    link = card.get_attribute("href") or ""
                 except Exception:
-                    try:
-                        link = card.find_element(By.TAG_NAME, "a").get_attribute("href")
-                    except Exception:
+                    pass
+                if not link or link.startswith("javascript") or link == "#":
+                    link = ""
+                    for a_sel in ["a[href*='/evento']", "a[href*='/show']", "a[href]"]:
                         try:
-                            link = card.get_attribute("href")
+                            link = card.find_element(By.CSS_SELECTOR, a_sel).get_attribute("href") or ""
+                            if link and not link.startswith("javascript") and link != "#":
+                                break
+                            link = ""
                         except Exception:
-                            pass
+                            continue
 
                 key = evento_key(nome, data)
                 if key in eventos_enviados:
