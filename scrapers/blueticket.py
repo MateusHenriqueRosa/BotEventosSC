@@ -5,14 +5,14 @@ import discord
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
-from .helpers import logger, evento_key, cancelavel_sleep
+from .helpers import logger, evento_key, normalizar_texto, cancelavel_sleep
 
 BASE_URL = "https://www.blueticket.com.br"
 
 CATEGORIAS = ["Baladas", "Festivais", "Shows Nacionais"]
 
 
-async def _scrape_blueticket_categoria(canal, cidade, categoria, driver, cancelar, eventos_enviados):
+async def _scrape_blueticket_categoria(canal, cidade, cidade_norm, categoria, driver, cancelar, eventos_enviados):
     cidade_param = urllib.parse.quote(f"{cidade}, SC")
     cat_param = urllib.parse.quote(categoria)
     url = f"{BASE_URL}/search?q=&category={cat_param}&city={cidade_param}"
@@ -63,6 +63,16 @@ async def _scrape_blueticket_categoria(canal, cidade, categoria, driver, cancela
                     cidade_evento = card.find_element(By.CSS_SELECTOR, ".event-city").text.strip()
                 except Exception:
                     pass
+
+                # Filtrar: só aceitar eventos da cidade buscada
+                if cidade_evento:
+                    # ".event-city" vem como "Florianópolis • SC" — extrair só o nome
+                    cidade_card = cidade_evento.split("•")[0].strip()
+                    if normalizar_texto(cidade_card) != cidade_norm:
+                        continue
+                else:
+                    # Sem info de cidade, pular o card
+                    continue
 
                 data = ""
                 try:
@@ -119,12 +129,13 @@ async def _scrape_blueticket_categoria(canal, cidade, categoria, driver, cancela
 
 async def buscar_blueticket(canal, cidade, driver, cancelar, eventos_enviados):
     await canal.send(f"🔵 **Blueticket** em **{cidade}**")
+    cidade_norm = normalizar_texto(cidade)
     total = 0
 
     for categoria in CATEGORIAS:
         if cancelar.is_set():
             return total
-        n = await _scrape_blueticket_categoria(canal, cidade, categoria, driver, cancelar, eventos_enviados)
+        n = await _scrape_blueticket_categoria(canal, cidade, cidade_norm, categoria, driver, cancelar, eventos_enviados)
         total += n
 
     if total == 0 and not cancelar.is_set():
