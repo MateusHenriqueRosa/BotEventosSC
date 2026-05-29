@@ -107,7 +107,7 @@ async def buscar_ingressodigital(canal, cidades_busca, driver, cancelar, eventos
                 )
                 if link_imagem:
                     embed.set_image(url=link_imagem)
-                embed.add_field(name="🔗 Link", value=href, inline=False)
+                embed.add_field(name="🔗 Link", value=f"[🎟️ Comprar ingresso]({href})", inline=False)
                 embed.set_footer(text="Ingresso Digital")
 
                 await canal.send(embed=embed)

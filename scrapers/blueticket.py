@@ -60,7 +60,7 @@ async def _scrape_blueticket_categoria(canal, cidade, categoria, driver, cancela
                 )
                 if link_imagem:
                     embed.set_image(url=link_imagem)
-                embed.add_field(name="🔗 Link", value=href, inline=False)
+                embed.add_field(name="🔗 Link", value=f"[🎟️ Comprar ingresso]({href})", inline=False)
                 embed.set_footer(text="Blueticket")
 
                 await canal.send(embed=embed)

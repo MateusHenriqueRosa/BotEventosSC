@@ -44,6 +44,8 @@ async def buscar_bilheteriadigital(canal, cidades_busca, driver, cancelar, event
             return total
         try:
             href = card.get_attribute("href") or ""
+            if not href:
+                continue
             card_text = card.text.strip()
             lines = [l.strip() for l in card_text.split("\n") if l.strip()]
             if len(lines) < 2:
@@ -86,7 +88,7 @@ async def buscar_bilheteriadigital(canal, cidades_busca, driver, cancelar, event
             )
             if link_imagem:
                 embed.set_image(url=link_imagem)
-            embed.add_field(name="🔗 Link", value=href, inline=False)
+            embed.add_field(name="🔗 Link", value=f"[🎟️ Comprar ingresso]({href})", inline=False)
             embed.set_footer(text="Bilheteria Digital")
 
             await canal.send(embed=embed)

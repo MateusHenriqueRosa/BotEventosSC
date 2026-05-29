@@ -140,7 +140,7 @@ async def buscar_ingressonacional(canal, cidade, driver, cancelar, eventos_envia
                 if link_imagem:
                     embed.set_image(url=link_imagem)
                 if link:
-                    embed.add_field(name="🔗 Link", value=link, inline=False)
+                    embed.add_field(name="🔗 Link", value=f"[🎟️ Comprar ingresso]({link})", inline=False)
                 embed.set_footer(text="Ingresso Nacional")
 
                 await canal.send(embed=embed)

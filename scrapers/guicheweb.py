@@ -58,7 +58,7 @@ async def buscar_guicheweb(canal, cidade, driver, cancelar, eventos_enviados):
                 )
                 if imagem:
                     embed.set_image(url=imagem)
-                embed.add_field(name="🔗 Link", value=href, inline=False)
+                embed.add_field(name="🔗 Link", value=f"[🎟️ Comprar ingresso]({href})", inline=False)
                 embed.set_footer(text="Guichê Web")
 
                 await canal.send(embed=embed)

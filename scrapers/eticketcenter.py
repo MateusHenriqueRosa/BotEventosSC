@@ -45,6 +45,8 @@ async def buscar_eticketcenter(canal, cidades_busca, driver, cancelar, eventos_e
                 return total
             try:
                 href = card.get_attribute("href") or ""
+                if not href:
+                    continue
                 card_text = card.text.strip()
                 if not card_text:
                     try:
@@ -94,7 +96,7 @@ async def buscar_eticketcenter(canal, cidades_busca, driver, cancelar, eventos_e
                 )
                 if link_imagem:
                     embed.set_image(url=link_imagem)
-                embed.add_field(name="🔗 Link", value=href, inline=False)
+                embed.add_field(name="🔗 Link", value=f"[🎟️ Comprar ingresso]({href})", inline=False)
                 embed.set_footer(text="eTicket Center")
 
                 await canal.send(embed=embed)
