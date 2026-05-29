@@ -51,8 +51,9 @@ def _normalizar(texto):
 def _cidade_do_local(local):
     if " - " in local:
         cidade_uf = local.rsplit(" - ", 1)[-1]
-        return cidade_uf.split("/")[0].strip()
-    return local
+    else:
+        cidade_uf = local
+    return cidade_uf.split("/")[0].split(",")[0].strip()
 
 
 async def buscar_pensanoevento(canal, cidade, driver, cancelar, eventos_enviados):

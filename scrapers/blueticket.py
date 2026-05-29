@@ -33,6 +33,8 @@ async def _scrape_blueticket_categoria(canal, cidade, categoria, driver, cancela
                 return total
             try:
                 href  = card.get_attribute("href") or ""
+                if not href:
+                    continue
                 nome  = card.find_element(By.CSS_SELECTOR, ".event-title").text.strip()
                 local = card.find_element(By.CSS_SELECTOR, ".event-location").text.strip()
                 data  = card.find_element(By.CSS_SELECTOR, ".event-date").text.strip()

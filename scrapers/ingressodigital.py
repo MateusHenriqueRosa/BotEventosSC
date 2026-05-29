@@ -39,8 +39,6 @@ async def buscar_ingressodigital(canal, cidades_busca, driver, cancelar, eventos
         if not cards:
             break
 
-        encontrou_nesta_pagina = False
-
         for card in cards:
             if cancelar.is_set():
                 return total
@@ -71,8 +69,6 @@ async def buscar_ingressodigital(canal, cidades_busca, driver, cancelar, eventos
                 cidade_encontrada = cidade_match(card_text, cidades_norm)
                 if not cidade_encontrada:
                     continue
-
-                encontrou_nesta_pagina = True
 
                 lines = [l.strip() for l in card_text.split("\n") if l.strip()]
                 data = ""
@@ -118,8 +114,6 @@ async def buscar_ingressodigital(canal, cidades_busca, driver, cancelar, eventos
                 logger.warning(f"IngressoDigital: erro ao processar card (pg {pg}): {e}")
                 continue
 
-        if not encontrou_nesta_pagina and not cards:
-            break
         pg += 1
 
     if total == 0 and not cancelar.is_set():

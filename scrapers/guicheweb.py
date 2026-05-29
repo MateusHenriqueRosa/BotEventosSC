@@ -40,6 +40,8 @@ async def buscar_guicheweb(canal, cidade, driver, cancelar, eventos_enviados):
                 return total
             try:
                 href   = card.get_attribute("href") or ""
+                if not href:
+                    continue
                 nome   = card.find_element(By.CSS_SELECTOR, "h6.Title").text.strip()
                 cidade_card = card.find_element(By.CSS_SELECTOR, ".Cidade").text.strip()
                 data   = card.find_element(By.CSS_SELECTOR, ".Data").text.strip()

@@ -28,7 +28,11 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger("bot_eventos")
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-CANAL_ID = int(os.getenv("CANAL_ID", "0"))
+try:
+    CANAL_ID = int(os.getenv("CANAL_ID", "0").strip())
+except ValueError:
+    CANAL_ID = 0
+MAX_BUSCAS_SIMULTANEAS = 2
 
 cidades = ["Florianópolis", "Brusque", "Blumenau", "Balneário Camboriú", "Camboriú", "Itapema", "Porto Belo", "Itajaí"]
 
@@ -46,6 +50,8 @@ def parse_cidades(args: str) -> list[str]:
 
 
 async def buscar_eventos(canal, cidades_busca: list[str] = None, cancelar: asyncio.Event = None):
+    if cancelar is None:
+        cancelar = asyncio.Event()
     lista = cidades_busca if cidades_busca else cidades
     eventos_enviados: set = set()
     resultados: dict[str, int] = {}
@@ -124,19 +130,20 @@ async def buscar_eventos(canal, cidades_busca: list[str] = None, cancelar: async
             total_eventos += n
 
         # ── Resumo por site ────────────────────────────────────────────────
-        resumo_lines = []
-        for nome_site, _ in SITES:
-            count = resultados.get(nome_site, 0)
-            emoji = "✅" if count > 0 else "➖"
-            resumo_lines.append(f"{emoji} **{nome_site}:** {count}")
+        if not cancelar.is_set():
+            resumo_lines = []
+            for nome_site, _ in SITES:
+                count = resultados.get(nome_site, 0)
+                emoji = "✅" if count > 0 else "➖"
+                resumo_lines.append(f"{emoji} **{nome_site}:** {count}")
 
-        embed_resumo = discord.Embed(
-            title="📊 Resumo por Site",
-            description="\n".join(resumo_lines),
-            color=0x00ff00
-        )
-        await canal.send(embed=embed_resumo)
-        await canal.send(f"✅ Busca concluída! Total de eventos encontrados: **{total_eventos}**")
+            embed_resumo = discord.Embed(
+                title="📊 Resumo por Site",
+                description="\n".join(resumo_lines),
+                color=0x00ff00
+            )
+            await canal.send(embed=embed_resumo)
+            await canal.send(f"✅ Busca concluída! Total de eventos encontrados: **{total_eventos}**")
 
     except Exception as e:
         logger.error(f"Erro na automação: {e}")
@@ -169,6 +176,10 @@ async def buscar(ctx, *, args: str = None):
 
     if user_id in buscas_ativas:
         await ctx.send("⚠️ Você já tem uma busca em andamento. Use `!parar` para cancelá-la antes de iniciar outra.")
+        return
+
+    if len(buscas_ativas) >= MAX_BUSCAS_SIMULTANEAS:
+        await ctx.send(f"⚠️ Limite de {MAX_BUSCAS_SIMULTANEAS} buscas simultâneas atingido. Aguarde uma busca terminar.")
         return
 
     cidades_busca = parse_cidades(args)

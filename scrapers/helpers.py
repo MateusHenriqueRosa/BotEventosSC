@@ -29,13 +29,13 @@ def extrair_cidade(texto: str) -> str:
                 return parte.rsplit(" - ", 1)[-1].strip()
             if ", " in parte:
                 return parte.rsplit(", ", 1)[-1].strip()
-            return parte.rsplit(" ", 1)[-1].strip()
+            return parte.strip()
     return ""
 
 
 def cidade_match(texto: str, cidades_norm: dict) -> str | None:
     texto_norm = normalizar_texto(texto)
-    for cn, c_orig in cidades_norm.items():
+    for cn, c_orig in sorted(cidades_norm.items(), key=lambda x: len(x[0]), reverse=True):
         if cn in texto_norm:
             return c_orig
     return None
