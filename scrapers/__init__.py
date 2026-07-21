@@ -1,4 +1,4 @@
-from .helpers import criar_driver, resetar_driver, cancelavel_sleep
+from .helpers import criar_driver, resetar_driver, cancelavel_sleep, canonizar_cidade
 from .ingresso_nacional import buscar_ingressonacional
 from .blueticket import buscar_blueticket
 from .guicheweb import buscar_guicheweb

@@ -17,6 +17,7 @@ from scrapers import (
     buscar_ingressonacional,
     buscar_minhaentrada,
     buscar_pensanoevento,
+    canonizar_cidade,
     cancelavel_sleep,
     criar_driver,
     resetar_driver,
@@ -52,7 +53,8 @@ def parse_cidades(args: str) -> list[str]:
 async def buscar_eventos(canal, cidades_busca: list[str] = None, cancelar: asyncio.Event = None):
     if cancelar is None:
         cancelar = asyncio.Event()
-    lista = cidades_busca if cidades_busca else cidades
+    base = cidades_busca if cidades_busca else cidades
+    lista = [canonizar_cidade(c) for c in base]
     eventos_enviados: set = set()
     resultados: dict[str, int] = {}
 

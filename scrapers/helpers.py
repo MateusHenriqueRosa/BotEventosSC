@@ -53,6 +53,31 @@ def extrair_cidade(texto: str) -> str:
     return ""
 
 
+# Nomes canônicos (com acento) das cidades-alvo, indexados pela forma
+# normalizada (sem acento). Alguns sites — como o Ingresso Nacional — fazem
+# busca textual sensível a acento, então "Itajai" não casa com "Itajaí".
+# Também mapeamos bairros conhecidos para a cidade correspondente.
+CIDADES_CANONICAS = {
+    "florianopolis": "Florianópolis",
+    "brusque": "Brusque",
+    "blumenau": "Blumenau",
+    "balneario camboriu": "Balneário Camboriú",
+    "camboriu": "Camboriú",
+    "itapema": "Itapema",
+    "porto belo": "Porto Belo",
+    "itajai": "Itajaí",
+    # bairros tratados como a cidade
+    "praia brava": "Itajaí",
+    "praia brava itajai": "Itajaí",
+}
+
+
+def canonizar_cidade(cidade: str) -> str:
+    """Retorna o nome canônico (com acento) da cidade, ou o próprio texto
+    se não estiver no mapa. Corrige buscas sensíveis a acento."""
+    return CIDADES_CANONICAS.get(normalizar_texto(cidade), cidade.strip())
+
+
 def cidade_match(texto: str, cidades_norm: dict) -> str | None:
     texto_norm = normalizar_texto(texto)
     for cn, c_orig in sorted(cidades_norm.items(), key=lambda x: len(x[0]), reverse=True):
