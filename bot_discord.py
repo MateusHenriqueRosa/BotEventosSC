@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import os
+import re
+import urllib.parse
 
 import discord
 from discord.ext import commands
@@ -20,8 +22,12 @@ from scrapers import (
     canonizar_cidade,
     cancelavel_sleep,
     criar_driver,
+    extrair_detalhes,
     resetar_driver,
 )
+
+# Domínios de ingresso aceitos pelo !detalhes (os mesmos 9 sites da automação)
+DOMINIOS_PERMITIDOS = {url for _, url in SITES}
 
 load_dotenv()
 
@@ -222,6 +228,97 @@ async def eventos(ctx, *, args: str = None):
     await buscar(ctx, args=args)
 
 
+def _site_do_link(link: str) -> str | None:
+    """Retorna o nome do site se o domínio do link for permitido, senão None."""
+    try:
+        host = urllib.parse.urlparse(link).netloc.lower()
+    except Exception:
+        return None
+    host = host.split(":")[0]
+    if host.startswith("www."):
+        host = host[4:]
+    for nome, dominio in SITES:
+        if host == dominio or host.endswith("." + dominio) or host == "www." + dominio:
+            return nome
+    return None
+
+
+@bot.command(name='detalhes')
+async def detalhes(ctx, *, link: str = None):
+    """Mostra lotes, setores e preços de um ingresso.
+
+    Uso: !detalhes <link do ingresso>
+    (o link é o mesmo enviado pela automação nos embeds)
+    """
+    if CANAL_ID and ctx.channel.id != CANAL_ID:
+        await ctx.send("⚠️ Este comando só pode ser usado no canal designado.")
+        return
+
+    if not link or not link.strip():
+        await ctx.send("ℹ️ Uso: `!detalhes <link do ingresso>` — cole o link enviado pela automação.")
+        return
+
+    link = link.strip().strip("<>")
+    if not re.match(r"^https?://", link, re.IGNORECASE):
+        await ctx.send("⚠️ Envie um link válido começando com `http`.")
+        return
+
+    site_nome = _site_do_link(link)
+    if not site_nome:
+        dominios = ", ".join(sorted(DOMINIOS_PERMITIDOS))
+        await ctx.send(f"⚠️ Só aceito links dos sites consultados pela automação:\n{dominios}")
+        return
+
+    await ctx.send(f"🔎 Buscando lotes e preços em **{site_nome}**...")
+
+    driver = criar_driver()
+    cancelar = asyncio.Event()
+    try:
+        dados = await extrair_detalhes(link, driver, cancelar)
+    except Exception as e:
+        logger.error(f"Erro no !detalhes ({link}): {e}")
+        await ctx.send("❌ Não consegui abrir esse link ou ler os ingressos.")
+        return
+    finally:
+        driver.quit()
+
+    tiers = dados.get("tiers", [])
+    if not tiers:
+        await ctx.send(
+            "⚠️ Não encontrei lotes/preços nessa página. "
+            "Pode ser que as vendas ainda não abriram, esgotaram, ou exigem login."
+        )
+        return
+
+    titulo = dados.get("titulo") or "Ingresso"
+    linhas = []
+    for t in tiers[:30]:
+        nome = t["nome"] or "Ingresso"
+        linha = f"🎫 **{nome}** — {t['preco']}"
+        extras = []
+        if t["lote"]:
+            extras.append(t["lote"])
+        if t["taxa"]:
+            extras.append(t["taxa"].lstrip("+ ").strip())
+        if extras:
+            linha += f"  ·  _{' · '.join(extras)}_"
+        linhas.append(linha)
+
+    descricao = "\n".join(linhas)
+    if len(descricao) > 4000:
+        descricao = descricao[:4000] + "\n… (lista truncada)"
+
+    embed = discord.Embed(
+        title=f"🎟️ {titulo}"[:256],
+        description=descricao,
+        color=0xFFD700,
+        url=link,
+    )
+    rodape = f"{site_nome} · {len(tiers)} opç" + ("ões" if len(tiers) != 1 else "ão")
+    embed.set_footer(text=rodape)
+    await ctx.send(embed=embed)
+
+
 @bot.command(name='cidades')
 async def listar_cidades(ctx):
     """Mostra as cidades disponíveis para busca."""
@@ -258,6 +355,7 @@ async def ajuda(ctx):
     embed.add_field(name="!buscar <cidade>", value="Busca em uma cidade específica\nEx: `!buscar Florianópolis`", inline=False)
     embed.add_field(name="!buscar <cidade1>;<cidade2>", value="Busca em múltiplas cidades\nEx: `!buscar Blumenau;Itajaí`", inline=False)
     embed.add_field(name="!eventos", value="Mesmo que !buscar", inline=False)
+    embed.add_field(name="!detalhes <link>", value="Mostra lotes, setores e preços de um ingresso\nEx: `!detalhes <link enviado pela automação>`", inline=False)
     embed.add_field(name="!cidades", value="Lista as cidades disponíveis para busca", inline=False)
     embed.add_field(name="!sites", value="Lista os sites de ingressos consultados", inline=False)
     embed.add_field(name="!parar", value="Cancela a busca em andamento (também: `!cancelar`)", inline=False)
