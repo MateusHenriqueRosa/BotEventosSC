@@ -2,7 +2,7 @@ import discord
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
-from .helpers import logger, evento_key, cidade_match, cancelavel_sleep
+from .helpers import logger, evento_key, cidade_match, cancelavel_sleep, titulo_bloqueado
 
 CATEGORIAS_URL = [
     ("https://www.eticketcenter.com.br/eventos/festa/", "Festa"),
@@ -66,6 +66,8 @@ async def buscar_eticketcenter(canal, cidades_busca, driver, cancelar, eventos_e
                     continue
 
                 nome = lines[0]
+                if titulo_bloqueado(nome):
+                    continue
                 data = ""
                 local = ""
 

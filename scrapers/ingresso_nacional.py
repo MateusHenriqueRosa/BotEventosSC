@@ -4,16 +4,18 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-from .helpers import logger, evento_key, cancelavel_sleep
+from .helpers import logger, evento_key, cancelavel_sleep, titulo_bloqueado
+
+BASE_URL = "https://www.ingressonacional.com.br"
+CDN_URL = "https://cdnin.blob.core.windows.net/cdn"
 
 
 async def buscar_ingressonacional(canal, cidade, driver, cancelar, eventos_enviados):
-    driver.get("https://www.ingressonacional.com.br/balada")
+    driver.get(BASE_URL)
     await cancelavel_sleep(3, cancelar)
     if cancelar.is_set():
         return 0
 
-    # Remover overlays (chat widgets, cookie banners) que bloqueiam interação
     driver.execute_script(
         "document.querySelectorAll('[class*=wbot], [class*=chat-widget], [class*=cookie]')"
         ".forEach(el => el.style.display='none')"
@@ -26,7 +28,6 @@ async def buscar_ingressonacional(canal, cidade, driver, cancelar, eventos_envia
             )
         )
     except Exception:
-        # Fallback: buscar qualquer input visível via JS
         try:
             search_box = driver.execute_script(
                 "return [...document.querySelectorAll('input')].find(i => i.offsetParent !== null && i.type !== 'hidden')"
@@ -67,78 +68,84 @@ async def buscar_ingressonacional(canal, cidade, driver, cancelar, eventos_envia
     total = 0
     try:
         WebDriverWait(driver, 8).until(
-            lambda d: d.find_elements(By.CSS_SELECTOR, "a[href*='/evento'], [class*='event']")
-                      or d.find_elements(By.TAG_NAME, "h2")
+            lambda d: d.find_elements(By.CSS_SELECTOR, "div.col-sm-6.col-md-3.animated")
+                      or d.find_elements(By.XPATH, "//*[contains(text(),'Nenhum evento')]")
         )
     except Exception:
         logger.info(f"Ingresso Nacional: timeout aguardando cards em {cidade}")
         return 0
 
+    await cancelavel_sleep(1, cancelar)
+
     try:
-        cards = driver.find_elements(By.CSS_SELECTOR, "a[href*='/evento']")
-        if not cards:
-            for sel in [".events-list > div", "[class*='event'] > div", ".row > div[class*='col']"]:
-                cards = driver.find_elements(By.CSS_SELECTOR, sel)
-                if cards:
-                    break
-        if not cards:
-            cards = driver.find_elements(By.XPATH, "//div[.//h2 and .//img]")
+        cards = driver.find_elements(By.CSS_SELECTOR, "div.col-sm-6.col-md-3.animated")
 
         for card in cards:
             if cancelar.is_set():
                 return total
             try:
                 nome = ""
-                for tag in ["h2", "h3", "h4", ".event-name", ".event-title"]:
+                try:
+                    nome = card.find_element(By.CSS_SELECTOR, "h2.ng-binding").text.strip()
+                except Exception:
                     try:
-                        nome = card.find_element(By.CSS_SELECTOR, tag).text.strip()
-                        if nome:
-                            break
+                        nome = card.find_element(By.TAG_NAME, "h2").text.strip()
                     except Exception:
                         continue
                 if not nome:
                     continue
+                if titulo_bloqueado(nome):
+                    continue
 
                 data = ""
-                for sel in ["span", ".event-date", ".date", "time"]:
-                    try:
-                        data = card.find_element(By.CSS_SELECTOR, sel).text.strip()
-                        if data:
-                            break
-                    except Exception:
-                        continue
+                try:
+                    data = card.find_element(By.CSS_SELECTOR, "span.ng-binding").text.strip()
+                except Exception:
+                    pass
+
+                cidade_card = ""
+                try:
+                    h4_elements = card.find_elements(By.CSS_SELECTOR, "h4.ng-binding")
+                    if h4_elements:
+                        cidade_card = h4_elements[-1].text.strip()
+                except Exception:
+                    pass
 
                 link_imagem = None
                 try:
-                    link_imagem = card.find_element(By.TAG_NAME, "img").get_attribute("src")
+                    img = card.find_element(By.CSS_SELECTOR, "img.img-responsive")
+                    link_imagem = img.get_attribute("ng-src") or img.get_attribute("src")
                 except Exception:
                     pass
 
-                # Tentar link direto primeiro (card é <a>), depois buscar ancora filha (card é div)
-                link = ""
+                url_evento = ""
                 try:
-                    link = card.get_attribute("href") or ""
+                    url_evento = driver.execute_script(
+                        "var scope = angular.element(arguments[0]).scope();"
+                        "return scope && scope.evento ? scope.evento.urlEvento : '';",
+                        card
+                    )
                 except Exception:
                     pass
-                if not link or link.startswith("javascript") or link == "#":
-                    link = ""
-                    for a_sel in ["a[href*='/evento']", "a[href*='/show']", "a[href]"]:
-                        try:
-                            link = card.find_element(By.CSS_SELECTOR, a_sel).get_attribute("href") or ""
-                            if link and not link.startswith("javascript") and link != "#":
-                                break
-                            link = ""
-                        except Exception:
-                            continue
+
+                link = f"{BASE_URL}/{url_evento}" if url_evento else ""
 
                 key = evento_key(nome, data)
                 if key in eventos_enviados:
                     continue
                 eventos_enviados.add(key)
 
+                desc_parts = []
+                if data:
+                    desc_parts.append(f"**📅 Data:** {data}")
+                if cidade_card:
+                    desc_parts.append(f"**📍 Local:** {cidade_card}")
+                else:
+                    desc_parts.append(f"**📍 Local:** {cidade}")
+
                 embed = discord.Embed(
                     title=f"🎭 {nome}",
-                    description=f"**📅 Data:** {data}\n**📍 Local:** {cidade}",
+                    description="\n".join(desc_parts),
                     color=0x5865F2,
                     url=link or ""
                 )

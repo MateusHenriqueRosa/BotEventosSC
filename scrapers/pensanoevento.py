@@ -5,7 +5,13 @@ import discord
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
-from .helpers import logger, evento_key, cancelavel_sleep
+from .helpers import logger, evento_key, cancelavel_sleep, titulo_bloqueado
+
+
+# Categorias de evento pesquisadas no Pensa no Evento (ignoramos "Gastronomia").
+# O site classifica muitas baladas/festas em "Eventos" (ex: Arraiá do Hike) e
+# shows em "Shows", então buscar só "Baladas" perde bastante coisa.
+TIPOS = ["Baladas", "Shows", "Eventos"]
 
 
 MAPA_CIDADES = {
@@ -56,14 +62,9 @@ def _cidade_do_local(local):
     return cidade_uf.split("/")[0].split(",")[0].strip()
 
 
-async def buscar_pensanoevento(canal, cidade, driver, cancelar, eventos_enviados):
-    cidade_normalizada = MAPA_CIDADES.get(cidade.lower().strip())
-    if cidade_normalizada is None:
-        cidade_normalizada = cidade.strip()
-
-    cidade_busca_norm = _normalizar(cidade_normalizada)
-    cidade_encoded = urllib.parse.quote(cidade_normalizada)
-    url = f"https://www.pensanoevento.com.br/sitev2/eventos/busca?tipo=Baladas&cidade={cidade_encoded}"
+async def _scrape_pensanoevento_tipo(canal, cidade_encoded, cidade_busca_norm, tipo,
+                                     driver, cancelar, eventos_enviados):
+    url = f"https://www.pensanoevento.com.br/sitev2/eventos/busca?tipo={tipo}&cidade={cidade_encoded}"
     driver.get(url)
 
     try:
@@ -72,7 +73,7 @@ async def buscar_pensanoevento(canal, cidade, driver, cancelar, eventos_enviados
             d.find_elements(By.XPATH, "//*[contains(text(),'Nenhum evento')]")
         )
     except Exception as e:
-        logger.info(f"PensaNoEvento: timeout aguardando cards em {cidade}: {e}")
+        logger.info(f"PensaNoEvento: timeout aguardando cards ({tipo}): {e}")
         return 0
 
     await cancelavel_sleep(1, cancelar)
@@ -80,7 +81,6 @@ async def buscar_pensanoevento(canal, cidade, driver, cancelar, eventos_enviados
         return 0
 
     total = 0
-    ignorados = 0
     try:
         cards = driver.find_elements(By.CSS_SELECTOR, "a.hotelsCard")
         for card in cards:
@@ -89,13 +89,14 @@ async def buscar_pensanoevento(canal, cidade, driver, cancelar, eventos_enviados
             try:
                 href  = card.get_attribute("href") or ""
                 nome  = card.find_element(By.CSS_SELECTOR, "h4 span").text.strip()
+                if titulo_bloqueado(nome):
+                    continue
                 data  = card.find_element(By.CSS_SELECTOR, ".text-14.text-light-1").text.strip()
                 local = card.find_element(By.CSS_SELECTOR, "p.text-light-1").text.strip()
                 imagem = card.find_element(By.CSS_SELECTOR, "img").get_attribute("src")
 
                 cidade_evento = _cidade_do_local(local)
                 if _normalizar(cidade_evento) != cidade_busca_norm:
-                    ignorados += 1
                     continue
 
                 key = evento_key(nome, data)
@@ -105,7 +106,7 @@ async def buscar_pensanoevento(canal, cidade, driver, cancelar, eventos_enviados
 
                 embed = discord.Embed(
                     title=f"🎉 {nome}",
-                    description=f"**📅 Data:** {data}\n**📍 Local:** {local}",
+                    description=f"**📅 Data:** {data}\n**📍 Local:** {local}\n**🏷️ Categoria:** {tipo}",
                     color=0xFF6B35,
                     url=href
                 )
@@ -119,10 +120,30 @@ async def buscar_pensanoevento(canal, cidade, driver, cancelar, eventos_enviados
                 await cancelavel_sleep(0.5, cancelar)
 
             except Exception as e:
-                logger.warning(f"PensaNoEvento: erro ao processar card em {cidade}: {e}")
+                logger.warning(f"PensaNoEvento: erro ao processar card ({tipo}): {e}")
                 continue
 
     except Exception as e:
-        logger.warning(f"PensaNoEvento: erro geral ao buscar {cidade}: {e}")
+        logger.warning(f"PensaNoEvento: erro geral ({tipo}): {e}")
+
+    return total
+
+
+async def buscar_pensanoevento(canal, cidade, driver, cancelar, eventos_enviados):
+    cidade_normalizada = MAPA_CIDADES.get(cidade.lower().strip())
+    if cidade_normalizada is None:
+        cidade_normalizada = cidade.strip()
+
+    cidade_busca_norm = _normalizar(cidade_normalizada)
+    cidade_encoded = urllib.parse.quote(cidade_normalizada)
+
+    total = 0
+    for tipo in TIPOS:
+        if cancelar.is_set():
+            return total
+        total += await _scrape_pensanoevento_tipo(
+            canal, cidade_encoded, cidade_busca_norm, tipo,
+            driver, cancelar, eventos_enviados
+        )
 
     return total

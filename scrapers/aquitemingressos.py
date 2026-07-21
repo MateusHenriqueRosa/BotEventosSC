@@ -2,7 +2,7 @@ import discord
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
-from .helpers import logger, evento_key, normalizar_texto, extrair_cidade, cidade_match, cancelavel_sleep
+from .helpers import logger, evento_key, normalizar_texto, cidade_match, cancelavel_sleep, titulo_bloqueado
 
 
 async def buscar_aquitemingressos(canal, cidades_busca, driver, cancelar, eventos_enviados):
@@ -13,8 +13,7 @@ async def buscar_aquitemingressos(canal, cidades_busca, driver, cancelar, evento
 
     try:
         WebDriverWait(driver, 10).until(
-            lambda d: d.find_elements(By.CSS_SELECTOR, "a[href*='__']")
-                      or d.find_elements(By.TAG_NAME, "h4")
+            lambda d: d.find_elements(By.CSS_SELECTOR, "div.product-card")
         )
     except Exception as e:
         logger.info(f"AquiTemIngressos: timeout aguardando cards: {e}")
@@ -25,68 +24,51 @@ async def buscar_aquitemingressos(canal, cidades_busca, driver, cancelar, evento
         return 0
 
     total = 0
-    links_processados: set = set()
-    cards = driver.find_elements(By.CSS_SELECTOR, "a[href*='__']")
+    cards = driver.find_elements(By.CSS_SELECTOR, "div.product-card")
 
     for card in cards:
         if cancelar.is_set():
             return total
         try:
-            href = card.get_attribute("href") or ""
-            if not href or href in links_processados:
+            title_link = card.find_element(By.CSS_SELECTOR, "a.card-link-title")
+            nome = title_link.text.strip()
+            href = title_link.get_attribute("href") or ""
+            if not nome or not href:
                 continue
-            links_processados.add(href)
+            # Ignorar card promocional fixo (não é um evento real)
+            if "seu evento" in normalizar_texto(nome):
+                continue
+            if titulo_bloqueado(nome):
+                continue
+            if href.startswith("/"):
+                href = f"https://www.aquitemingressos.com.br{href}"
 
-            nome = ""
+            data = ""
             try:
-                nome = card.find_element(By.TAG_NAME, "h4").text.strip()
+                data = card.find_element(By.CSS_SELECTOR, "span.card-event-date").text.strip()
             except Exception:
-                text = card.text.strip()
-                nome = text.split("\n")[0] if text else ""
-            if not nome:
+                pass
+
+            local = ""
+            try:
+                local = card.find_element(By.TAG_NAME, "small").text.strip()
+            except Exception:
+                pass
+
+            cidade_encontrada = cidade_match(local, cidades_norm)
+            if not cidade_encontrada:
                 continue
 
             link_imagem = None
             try:
-                link_imagem = card.find_element(By.TAG_NAME, "img").get_attribute("src")
+                link_imagem = card.find_element(By.CSS_SELECTOR, "img.card-img-top").get_attribute("src")
             except Exception:
                 pass
-
-            data = ""
-            local = ""
-            try:
-                parent = card.find_element(By.XPATH, "./..")
-                parent_text = parent.text.strip()
-                lines = [l.strip() for l in parent_text.split("\n") if l.strip()]
-
-                for line in lines:
-                    if line == nome:
-                        continue
-                    line_lower = line.lower()
-                    if any(d in line_lower for d in ["seg,", "ter,", "qua,", "qui,", "sex,", "sáb,", "sab,", "dom,"]) and not data:
-                        data = line
-                    elif ("SC" in line or "sc" in line.split(",")[-1].strip() if "," in line else False) and not local:
-                        local = line
-                    elif " - " in line and not local:
-                        local = line
-            except Exception:
-                pass
-
-            cidade_evento = extrair_cidade(local)
-            if cidade_evento and normalizar_texto(cidade_evento) in cidades_norm:
-                pass
-            elif cidade_match(f"{nome} {local} {data}", cidades_norm):
-                pass
-            else:
-                continue
 
             key = evento_key(nome, data)
             if key in eventos_enviados:
                 continue
             eventos_enviados.add(key)
-
-            if href.startswith("/"):
-                href = f"https://www.aquitemingressos.com.br{href}"
 
             embed = discord.Embed(
                 title=f"🎫 {nome}",

@@ -2,21 +2,20 @@ import discord
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
-from .helpers import logger, evento_key, normalizar_texto, extrair_cidade, cancelavel_sleep
+from .helpers import logger, evento_key, normalizar_texto, cancelavel_sleep, titulo_bloqueado
 
-MESES = ["janeiro", "fevereiro", "março", "marco", "abril", "maio", "junho",
-         "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
+BASE_URL = "https://www.bilheteriadigital.com"
 
 
 async def buscar_bilheteriadigital(canal, cidades_busca, driver, cancelar, eventos_enviados):
     await canal.send("🟣 **Bilheteria Digital**")
 
     cidades_norm = {normalizar_texto(c): c for c in cidades_busca}
-    driver.get("https://www.bilheteriadigital.com/SC")
+    driver.get(f"{BASE_URL}/SC")
 
     try:
         WebDriverWait(driver, 12).until(
-            lambda d: d.find_elements(By.CSS_SELECTOR, "a[href]") and len(d.find_elements(By.CSS_SELECTOR, "a[href]")) > 5
+            lambda d: d.find_elements(By.CSS_SELECTOR, "li.box-li-evento")
         )
     except Exception as e:
         logger.info(f"BilheteriaDigital: timeout aguardando cards SC: {e}")
@@ -27,47 +26,50 @@ async def buscar_bilheteriadigital(canal, cidades_busca, driver, cancelar, event
         return 0
 
     total = 0
-    all_links = driver.find_elements(By.CSS_SELECTOR, "a[href]")
-    cards = []
-    for link in all_links:
-        href = link.get_attribute("href") or ""
-        text = link.text.strip()
-        if (href.startswith("https://www.bilheteriadigital.com/")
-            and href != "https://www.bilheteriadigital.com/SC"
-            and href != "https://www.bilheteriadigital.com/"
-            and text and len(text) > 10
-            and " - SC" in text.upper()):
-            cards.append(link)
+    cards = driver.find_elements(By.CSS_SELECTOR, "li.box-li-evento")
 
     for card in cards:
         if cancelar.is_set():
             return total
         try:
-            href = card.get_attribute("href") or ""
+            link_el = card.find_element(By.TAG_NAME, "a")
+            href = link_el.get_attribute("href") or ""
             if not href:
                 continue
-            card_text = card.text.strip()
-            lines = [l.strip() for l in card_text.split("\n") if l.strip()]
-            if len(lines) < 2:
+            if href.startswith("/"):
+                href = f"{BASE_URL}{href}"
+
+            nome = ""
+            try:
+                nome = card.find_element(By.CSS_SELECTOR, ".titulo-evento-thumb").text.strip()
+            except Exception:
+                pass
+            if not nome:
+                continue
+            if titulo_bloqueado(nome):
                 continue
 
-            nome = lines[0]
             data = ""
+            try:
+                data = card.find_element(By.CSS_SELECTOR, ".data-evento-div").text.strip()
+            except Exception:
+                pass
+
             cidade_texto = ""
-            local = ""
+            try:
+                cidade_texto = card.find_element(By.CSS_SELECTOR, ".cidade-box-evento").text.strip()
+            except Exception:
+                pass
 
-            for line in lines[1:]:
-                line_lower = line.lower()
-                if any(m in line_lower for m in MESES) and not data:
-                    data = line
-                elif " - SC" in line.upper():
-                    cidade_texto = line
-                elif not local:
-                    local = line
-
-            cidade_evento = extrair_cidade(cidade_texto) if cidade_texto else ""
+            cidade_evento = cidade_texto.replace(" - SC", "").replace("- SC", "").strip()
             if not cidade_evento or normalizar_texto(cidade_evento) not in cidades_norm:
                 continue
+
+            local = ""
+            try:
+                local = card.find_element(By.CSS_SELECTOR, ".local-box-evento").text.strip()
+            except Exception:
+                pass
 
             link_imagem = None
             try:
@@ -80,9 +82,11 @@ async def buscar_bilheteriadigital(canal, cidades_busca, driver, cancelar, event
                 continue
             eventos_enviados.add(key)
 
+            local_display = f"{local} — {cidade_texto}" if local else cidade_texto
+
             embed = discord.Embed(
                 title=f"🎫 {nome}",
-                description=f"**📅 Data:** {data}\n**📍 Local:** {local}\n**🏙️ Cidade:** {cidade_texto}",
+                description=f"**📅 Data:** {data}\n**📍 Local:** {local_display}",
                 color=0x6C3BF5,
                 url=href
             )

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import unicodedata
 
 from selenium import webdriver
@@ -19,6 +20,25 @@ def evento_key(nome: str, data: str) -> str:
 def normalizar_texto(texto: str) -> str:
     texto = unicodedata.normalize("NFD", texto.lower().strip())
     return "".join(c for c in texto if unicodedata.category(c) != "Mn")
+
+
+# Categorias de evento que NÃO interessam (stand-up, teatro, fisiculturismo).
+# O regex é aplicado sobre o texto normalizado (minúsculo, sem acento) e casa
+# apenas com o TÍTULO do evento — nunca com o local/venue.
+PADRAO_TITULO_BLOQUEADO = re.compile(
+    r"\bstand[\s\-]?up\b"        # stand up, stand-up, standup
+    r"|\bteatr\w*"               # teatro, teatral, teatros
+    r"|\bfisicultur\w*"          # fisiculturismo, fisiculturista(s)
+    r"|\bbody\s?build\w*"        # bodybuilder, bodybuilding, body building
+)
+
+
+def titulo_bloqueado(titulo: str) -> bool:
+    """True se o TÍTULO do evento contém categoria indesejada (stand-up,
+    teatro, fisiculturismo/bodybuilder). Use só no nome do evento."""
+    if not titulo:
+        return False
+    return bool(PADRAO_TITULO_BLOQUEADO.search(normalizar_texto(titulo)))
 
 
 def extrair_cidade(texto: str) -> str:

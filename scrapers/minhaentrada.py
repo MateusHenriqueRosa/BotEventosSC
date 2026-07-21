@@ -2,7 +2,7 @@ import discord
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
-from .helpers import logger, evento_key, normalizar_texto, cidade_match, cancelavel_sleep
+from .helpers import logger, evento_key, normalizar_texto, cidade_match, cancelavel_sleep, titulo_bloqueado
 
 
 async def buscar_minhaentrada(canal, cidades_busca, driver, cancelar, eventos_enviados):
@@ -60,6 +60,8 @@ async def buscar_minhaentrada(canal, cidades_busca, driver, cancelar, eventos_en
                 except Exception:
                     nome = lines[0]
                 if not nome:
+                    continue
+                if titulo_bloqueado(nome):
                     continue
 
                 data = lines[1] if len(lines) > 1 else ""

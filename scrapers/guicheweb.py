@@ -4,7 +4,7 @@ import discord
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
-from .helpers import logger, evento_key, cancelavel_sleep
+from .helpers import logger, evento_key, cancelavel_sleep, titulo_bloqueado
 
 
 def cidade_para_slug(cidade):
@@ -43,6 +43,8 @@ async def buscar_guicheweb(canal, cidade, driver, cancelar, eventos_enviados):
                 if not href:
                     continue
                 nome   = card.find_element(By.CSS_SELECTOR, "h6.Title").text.strip()
+                if titulo_bloqueado(nome):
+                    continue
                 cidade_card = card.find_element(By.CSS_SELECTOR, ".Cidade").text.strip()
                 data   = card.find_element(By.CSS_SELECTOR, ".Data").text.strip()
                 imagem = card.find_element(By.CSS_SELECTOR, "img.card-img-top").get_attribute("src")

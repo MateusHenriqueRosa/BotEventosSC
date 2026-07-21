@@ -5,7 +5,7 @@ import discord
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 
-from .helpers import logger, evento_key, normalizar_texto, cancelavel_sleep
+from .helpers import logger, evento_key, normalizar_texto, cancelavel_sleep, titulo_bloqueado
 
 BASE_URL = "https://www.blueticket.com.br"
 
@@ -50,6 +50,8 @@ async def _scrape_blueticket_categoria(canal, cidade, cidade_norm, categoria, dr
                 except Exception:
                     pass
                 if not nome:
+                    continue
+                if titulo_bloqueado(nome):
                     continue
 
                 local = ""
