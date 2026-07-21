@@ -15,6 +15,9 @@ Bot Discord que automatiza a busca de eventos em cidades de Santa Catarina (Flor
 - 📤 Integracao com Discord via bot
 - 🖼️ Embeds formatados com imagens dos eventos
 - 📅 Extracao de datas e informacoes dos eventos
+- 🎫 Comando `!detalhes <link>` que le lotes, setores (pista, VIP, feminino, masculino) e precos de um ingresso
+- 🚫 Filtro de titulo que descarta stand-up, teatro e fisiculturismo
+- 🏙️ Canonizacao de cidade (busca por "Itajai" ou "praia brava" encontra os eventos de Itajai)
 - 🔎 Deduplicacao automatica de eventos entre sites
 - 📊 Resumo por site ao final de cada busca
 - 🐳 Suporte a containerizacao com Docker
@@ -78,6 +81,7 @@ python bot_discord.py
 | `!buscar <cidade>` | Busca em uma cidade específica (ex: `!buscar Florianópolis`) |
 | `!buscar <c1>;<c2>` | Busca em múltiplas cidades (ex: `!buscar Blumenau;Itajaí`) |
 | `!eventos` | Alias para `!buscar` |
+| `!detalhes <link>` | Mostra lotes, setores e preços de um ingresso (use o link enviado pela automação) |
 | `!cidades` | Lista as cidades disponíveis para busca |
 | `!sites` | Lista os 9 sites de ingressos consultados |
 | `!parar` | Cancela a busca em andamento (alias: `!cancelar`) |
@@ -92,7 +96,20 @@ Bot: 🔍 Iniciando busca de eventos...
 Bot: 📍 Pesquisando em: Blumenau
 Bot: [Embed com evento encontrado]
 Bot: ✅ Busca concluída! Total de eventos encontrados: 15
+
+User: !detalhes https://www.blueticket.com.br/evento/41332/...
+Bot: 🔎 Buscando lotes e preços em Blueticket...
+Bot: [Embed: PISTA FEMININO - Meia-entrada — R$ 70,00 · Lote 1 · R$ 9,10 taxa, ...]
 ```
+
+### Filtros aplicados na busca
+
+- **Cidade:** cada card é conferido contra a cidade pesquisada. O nome digitado é canonizado
+  para a forma com acento (`Itajai` → `Itajaí`), e `praia brava` é tratado como `Itajaí`.
+- **Categoria:** sites com categoria (Blueticket, Pensa no Evento, eTicket Center, Ingresso
+  Digital) buscam apenas baladas/festas/shows.
+- **Título:** eventos cujo **título** contém stand-up, teatro ou fisiculturismo/bodybuilder são
+  descartados (não afeta o local/venue).
 
 ## 🔧 Configuração
 
@@ -156,16 +173,19 @@ BotEventosSC/
 ├── bot_discord.py              # Bot principal com comandos Discord
 ├── scrapers/                   # Módulo de scrapers
 │   ├── __init__.py             # Exports e lista SITES
-│   ├── helpers.py              # Utilitários compartilhados
-│   ├── ingresso_nacional.py    # ingressonacional.com.br
+│   ├── helpers.py              # Utilitários compartilhados (dedup, cidade, filtro de título)
+│   ├── detalhes.py             # Extração de lotes/setores/preços para !detalhes
+│   ├── ingresso_nacional.py    # ingressonacional.com.br (SPA AngularJS)
 │   ├── blueticket.py           # blueticket.com.br
 │   ├── guicheweb.py            # guicheweb.com.br
-│   ├── pensanoevento.py        # pensanoevento.com.br
+│   ├── pensanoevento.py        # pensanoevento.com.br (Baladas + Shows + Eventos)
 │   ├── minhaentrada.py         # minhaentrada.com.br
 │   ├── bilheteriadigital.py    # bilheteriadigital.com
 │   ├── aquitemingressos.py     # aquitemingressos.com.br
 │   ├── ingressodigital.py      # ingressodigital.com
 │   └── eticketcenter.py        # eticketcenter.com.br
+├── test_scrapers.py            # Harness de teste dos scrapers (sem Discord)
+├── test_detalhes.py            # Harness de teste do !detalhes (sem Discord)
 ├── requirements.txt            # Dependências Python
 ├── Dockerfile                  # Configuração Docker
 ├── docker-compose.yml          # Orquestração Docker
@@ -257,4 +277,4 @@ Para dúvidas ou problemas, abra uma [Issue](https://github.com/Eduardokohler/Bo
 
 ---
 
-**Última atualização:** Maio 2026
+**Última atualização:** Julho 2026

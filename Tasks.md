@@ -274,15 +274,36 @@ Florianópolis, Brusque, Blumenau, Balneário Camboriú, Camboriú, Itapema, Por
 
 - [x] **T21:** Atualizar `README.md` com 9 sites, novos comandos, estrutura modularizada e dependências atualizadas
 
+### FASE 4 — Correção de sites, filtros e comando !detalhes (Julho 2026) ✅ CONCLUÍDA
+
+Os sites mudaram de HTML e alguns scrapers pararam de funcionar / traziam categorias erradas.
+Mapeamento refeito com Claude in Chrome e validado com `test_scrapers.py`.
+
+- [x] **T22:** Reescrever **Ingresso Nacional** para a nova SPA AngularJS (a URL de busca antiga sumiu). Digita a cidade no input, dá Enter, lê `div.col-sm-6.col-md-3.animated`; link real via `angular.element(card).scope().evento.urlEvento`.
+- [x] **T23:** Remapear **Bilheteria Digital** para `li.box-li-evento` (`.titulo-evento-thumb`, `.data-evento-div`, `.cidade-box-evento`, `.local-box-evento`).
+- [x] **T24:** Remapear **Aqui Tem Ingressos** para `div.product-card` (`a.card-link-title`, `span.card-event-date`, `small`); ignora card promocional fixo "Seu evento você encontra aqui".
+- [x] **T25:** **Ingresso Digital** — filtrar por categoria (`.genero-evento-card`: só show/festival/festa/balada) e corrigir extração do local.
+- [x] **T26:** **Pensa no Evento** — buscar `Baladas + Shows + Eventos` (antes só `Baladas`), capturando casas como Hike Brava que ficam em `Eventos`.
+- [x] **T27:** Filtro de **título** (`titulo_bloqueado()` em `helpers.py`) aplicado nos 9 scrapers: descarta stand-up, teatro e fisiculturismo/bodybuilder pelo título (nunca pelo local).
+- [x] **T28:** **Canonização de cidade** (`canonizar_cidade()` + `CIDADES_CANONICAS`): a busca do Ingresso Nacional é sensível a acento, então `Itajai` → `Itajaí`; `praia brava` → `Itajaí`. Aplicada em `buscar_eventos()`.
+- [x] **T29:** Comando **`!detalhes <link>`** + módulo `scrapers/detalhes.py`: extrai lote, setores (pista/VIP/feminino/masculino), preço, meia entrada, meia social. Extrator genérico que entra em iframes same-origin (Blueticket) e valida o domínio contra a lista `SITES`.
+- [x] **T30:** Harnesses de teste `test_scrapers.py` e `test_detalhes.py` (mock de canal/embed, sem Discord).
+
+**Casas populares verificadas (Praia Brava / Camboriú / BC):** Viva Beach Club (Ingresso Nacional), Surreal Park (Blueticket), Green Valley (Guichê Web), Hike Brava (Pensa no Evento).
+
 ---
 
 ## 4. Estrutura HTML dos Sites (Referência para Scraping)
 
-### ingressonacional.com.br
-- **Página:** `/balada`
-- **Busca:** Campo de texto (input) — digitar cidade e ENTER
-- **Cards:** Div containers com XPath relativo ao container principal
-- **Nota:** Site carrega via AJAX (loader gif detectado). Precisa de Selenium.
+> ⚠️ Alguns seletores abaixo são de versões antigas dos sites. Veja a FASE 4 e o código atual
+> em `scrapers/` para o mapeamento vigente (os sites mudam de HTML com frequência).
+
+### ingressonacional.com.br (SPA AngularJS — atualizado FASE 4)
+- **Página:** home `/` (não há mais URL de busca)
+- **Busca:** digitar cidade no `input[placeholder*='Pesquise']` + ENTER
+- **Cards:** `div.col-sm-6.col-md-3.animated` — `h2.ng-binding` (nome), `span.ng-binding` (data), `h4.ng-binding` (cidade), `img.img-responsive`
+- **Link do evento:** não há `href`; ler `angular.element(card).scope().evento.urlEvento` e montar `BASE_URL/{urlEvento}`
+- **Nota:** busca é sensível a acento — a cidade precisa ser canonizada (`canonizar_cidade`)
 
 ### blueticket.com.br
 - **Página:** `/search?q={cidade}&category={categoria}`
@@ -298,10 +319,10 @@ Florianópolis, Brusque, Blumenau, Balneário Camboriú, Camboriú, Itapema, Por
 - **Nota:** Retornou "nenhum evento" para Florianópolis e Blumenau — pode não ter cobertura nessas cidades
 
 ### pensanoevento.com.br
-- **Página:** `/sitev2/eventos/busca?tipo=Baladas&cidade={cidade}`
+- **Página:** `/sitev2/eventos/busca?tipo={tipo}&cidade={cidade}` — busca `Baladas`, `Shows` **e** `Eventos` (FASE 4)
 - **Cards:** `a.hotelsCard`
 - **Campos:** `h4 span` (nome), `.text-14.text-light-1` (data), `p.text-light-1` (local)
-- **Nota:** Selectors não confirmados no fetch estático (pode ser SPA parcial)
+- **Nota:** muitas casas (ex: Hike Brava) ficam em `tipo=Eventos`, não em `Baladas`
 
 ### minhaentrada.com.br (NOVO)
 - **Página:** `/agenda-geral?categoria=2` (Baladas), `?categoria=6` (Festas)
