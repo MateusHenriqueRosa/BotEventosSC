@@ -9,6 +9,28 @@ from .helpers import logger, evento_key, cancelavel_sleep, titulo_bloqueado
 BASE_URL = "https://www.ingressonacional.com.br"
 CDN_URL = "https://cdnin.blob.core.windows.net/cdn"
 
+# Os cards não têm href — o site monta a URL na função direcionar(evento, urlEvento).
+# Este JS espelha essa lógica. As rotas do ui-router são:
+#   evento -> /evento/:idEvento/:nomeEvento
+#   casa   -> /{nomeCasa}
+# Um card com IDCategoria == 0 é uma CASA (usa UrlCasa); os demais são EVENTOS.
+# Usar a rota de casa para um evento cai na home — era o bug antigo.
+_JS_LINK_EVENTO = r"""
+var scope = angular.element(arguments[0]).scope();
+if (!scope || !scope.evento) return '';
+var e = scope.evento, base = arguments[1];
+var id = String(e.IDEvento || '');
+if (String(e.IDCategoria) === '0') {
+    if (id === '1051') return base + '/artico';
+    if (id === '1086') return base + '/artico/gratidao';
+    if (id === '1088') return base + '/artico/rj';
+    return e.UrlCasa ? base + '/' + e.UrlCasa : '';
+}
+if (id === '9992') return base + '/camaroteae';
+if (id === '17096') return base + '/expointer';
+return (id && e.urlEvento) ? base + '/evento/' + id + '/' + e.urlEvento : '';
+"""
+
 
 async def buscar_ingressonacional(canal, cidade, driver, cancelar, eventos_enviados):
     driver.get(BASE_URL)
@@ -118,17 +140,11 @@ async def buscar_ingressonacional(canal, cidade, driver, cancelar, eventos_envia
                 except Exception:
                     pass
 
-                url_evento = ""
+                link = ""
                 try:
-                    url_evento = driver.execute_script(
-                        "var scope = angular.element(arguments[0]).scope();"
-                        "return scope && scope.evento ? scope.evento.urlEvento : '';",
-                        card
-                    )
+                    link = driver.execute_script(_JS_LINK_EVENTO, card, BASE_URL) or ""
                 except Exception:
                     pass
-
-                link = f"{BASE_URL}/{url_evento}" if url_evento else ""
 
                 key = evento_key(nome, data)
                 if key in eventos_enviados:

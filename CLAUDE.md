@@ -101,7 +101,7 @@ Digital; Ingresso Digital only exposes a base price (sectors are behind the buy 
 Most target sites render via JavaScript. Selenium is required — static HTTP fetches (requests/httpx) will only see "Loading...". When a site changes its HTML structure, the corresponding scraper's CSS selectors need updating. Use browser DevTools or Claude in Chrome to re-map selectors.
 
 Two site quirks worth knowing:
-- **Ingresso Nacional is an AngularJS SPA.** There is no search URL; the scraper types the city into the search input, presses Enter, then reads cards (`div.col-sm-6.col-md-3.animated`). Cards have no `href` — the real event URL comes from `angular.element(card).scope().evento.urlEvento`.
+- **Ingresso Nacional is an AngularJS SPA.** There is no search URL; the scraper types the city into the search input, presses Enter, then reads cards (`div.col-sm-6.col-md-3.animated`). Cards have no `href` — the URL must be rebuilt from the Angular scope, mirroring the site's own `direcionar()` function (`_JS_LINK_EVENTO` in the scraper). There are **two card types**: a card with `IDCategoria == 0` is a **casa/venue** → `/{UrlCasa}` (e.g. `/vivabeachclub`); anything else is an **event** → `/evento/{IDEvento}/{urlEvento}` (e.g. `/evento/34613/viva-rasa-...`). Using the root-level casa route for an event silently redirects to the homepage — and then `!detalhes` finds no prices.
 - **Blueticket's ticket panel is inside a same-origin iframe.** `!detalhes` must switch into iframes (which `detalhes.py` does) to read the prices.
 
 ## Adding a new scraper

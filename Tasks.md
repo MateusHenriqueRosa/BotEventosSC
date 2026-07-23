@@ -302,7 +302,10 @@ Mapeamento refeito com Claude in Chrome e validado com `test_scrapers.py`.
 - **Página:** home `/` (não há mais URL de busca)
 - **Busca:** digitar cidade no `input[placeholder*='Pesquise']` + ENTER
 - **Cards:** `div.col-sm-6.col-md-3.animated` — `h2.ng-binding` (nome), `span.ng-binding` (data), `h4.ng-binding` (cidade), `img.img-responsive`
-- **Link do evento:** não há `href`; ler `angular.element(card).scope().evento.urlEvento` e montar `BASE_URL/{urlEvento}`
+- **Link do evento:** não há `href`. Reconstruir a partir do scope Angular espelhando a função `direcionar()` do site (rotas do ui-router):
+  - `IDCategoria == 0` → **casa**: `/{UrlCasa}` (ex: `/vivabeachclub`)
+  - demais → **evento**: `/evento/{IDEvento}/{urlEvento}` (ex: `/evento/34613/viva-rasa-...`)
+  - ⚠️ usar a rota de casa para um evento redireciona pra home e quebra o `!detalhes`
 - **Nota:** busca é sensível a acento — a cidade precisa ser canonizada (`canonizar_cidade`)
 
 ### blueticket.com.br
